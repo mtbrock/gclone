@@ -3,3 +3,6 @@ include
 lib
 __pycache__
 pip-selfcheck.json
+dist
+build
+*egg-info
