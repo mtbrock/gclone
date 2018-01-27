@@ -1,22 +1,23 @@
-======
 gclone
 ======
-Clone git repositories with ease.
+A Python 3 program for cloning github repositories.
 
-************
-Requirements
-************
+Install
+-------
+``pip install --user gclone``
 
-1) Python 3
-===========
-`Tutorials for installing python<http://docs.python-guide.org/en/latest/starting/installation/>`_
+Usage
+-----
 
-`Python downloads page<https://www.python.org/downloads/>`_
+Clone by full name::
 
-2) pip
-======
-  pip is already installed if you're using Python 2 >=2.7.9 or Python 3 >=3.4 binaries downloaded from python.org, but you'll need to upgrade pip.
+  $ gclone mtbrock/gclone
 
-  Additionally, pip will already be installed if you're working in a Virtual Environment created by virtualenv or pyvenv.
+Clone by partial name or keyword. gclone will provide a list of relevant github
+repositories to choose from, sorted by 'stars'::
 
-If you do not have pip: `installing pip <https://pip.pypa.io/en/stable/installing/>`
+  $ gclone tmux
+
+Pass options just like you would to ``git clone``::
+
+  $ gclone --branch my-branch my-repo /path/to/my-dir
