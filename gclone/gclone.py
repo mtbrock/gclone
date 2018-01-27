@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+import sys
 import argparse
 import shutil
 import subprocess
@@ -11,7 +12,7 @@ CHOICE_FULL_NAME_MATCH = 'full_match'
 CHOICE_FULL_NAME_NO_MATCH = 'full_no_match'
 CHOICE_NONE = 'none'
 
-def parse_input(choice, limit):
+def parse_list_input(choice, limit):
     choice = choice.lower()
     try:
         if choice.isdecimal():
@@ -83,7 +84,7 @@ def get_list_input_url(repos, limit=None):
         limit = 10
     print_repos(repos, limit)
     i = get_input('Clone which repository? ')
-    letter = parse_input(i, limit)
+    letter = parse_list_input(i, limit)
     repo = repos.get(letter, None)
 
     if repo is None:
@@ -111,7 +112,7 @@ def get_match_url(keyword, repos):
     match = [repo for repo in repos.values() if repo.full_name == keyword]
     return match[0].clone_url
 
-def main():
+def parseopts(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('repo', help='Keyword or full repo name. If repo ' \
             'matches a search result\'s full repository name ' \
@@ -119,13 +120,17 @@ def main():
             'search results to pick from.')
     parser.add_argument('clone_args', nargs=argparse.REMAINDER,
             help='Arguments passed to git clone.')
-    args = parser.parse_args()
-    keyword = args.repo
-    clone_args = args.clone_args
+    parsed_args = parser.parse_args(args)
+    return (parsed_args.repo, parsed_args.clone_args)
+
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+
+    keyword, clone_args = parseopts(args)
 
     repos = parse_search_results(search(keyword))
     choice = get_choice(keyword, repos)
-    clone_url = None
 
     if choice == CHOICE_NONE:
         print('No repositories found.')
@@ -137,9 +142,7 @@ def main():
     elif choice == CHOICE_FULL_NAME_NO_MATCH:
         clone_url = get_no_match_input_url(keyword)
 
-    if(clone_url == None):
-        return
-    else:
+    if clone_url is not None:
         git('clone', clone_url, *clone_args)
 
 if __name__ == '__main__':
