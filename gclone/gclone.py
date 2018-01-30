@@ -1,149 +1,152 @@
-#!/usr/bin/env python3
-import sys
 import argparse
-import shutil
-import subprocess
-from collections import OrderedDict
+
+# PyGithub
 from github import Github
-from string import ascii_lowercase
 
-CHOICE_LIST = 'list'
-CHOICE_FULL_NAME_MATCH = 'full_match'
-CHOICE_FULL_NAME_NO_MATCH = 'full_no_match'
-CHOICE_NONE = 'none'
+class Gclone(object):
+    """gclone command line state. Provides output and handles user input."""
+    STATE_LIST = 'list'
+    STATE_FULL_NAME_MATCH = 'full_match'
+    STATE_FULL_NAME_NO_MATCH = 'full_no_match'
+    STATE_NONE = 'none'
 
-def parse_list_input(choice, limit):
-    choice = choice.lower()
-    try:
-        if choice.isdecimal():
-            if int(choice) > limit:
-                choice = None
-            else:
-                choice = ascii_lowercase[int(choice) - 1]
-        elif ascii_lowercase.find(choice) >= limit:
-            choice = None
-    except IndexError as e:
-        choice = None
-    return choice
+    def __init__(self, keyword, repos):
+        self._update_state(keyword, repos)
 
-def git(*args):
-    return subprocess.run(['git'] + list(args))
+    def needs_input(self):
+        """Return whether we are in a state that requires user input."""
+        return self._state in [self.STATE_LIST, self.STATE_FULL_NAME_NO_MATCH]
 
-def search(keyword):
-    gh = Github()
-    return gh.search_repositories(keyword)
+    def handle_input(self, user_input):
+        """Handle user input.
 
-def parse_search_results(results):
-    page = results.get_page(0)
-    limit = min(len(page), len(ascii_lowercase))
-    term_cols = shutil.get_terminal_size((80, 20)).columns
+        Parameters
+        ----------
+        user_input : str
 
-    repos = OrderedDict()
-    i = 0
-    for repo in page[0:limit]:
-        letter = ascii_lowercase[i]
-        number = i + 1
-        repos[letter] = repo
-        i += 1
-    return repos
-
-def get_choice(keyword, repos):
-    repo_words = keyword.split('/')
-    full_name = True if len(repo_words) == 2 else False
-    choice = CHOICE_LIST
-    if full_name:
-        match = [repo for repo in repos.values() if repo.full_name == keyword]
-        if len(match) == 1:
-            choice = CHOICE_FULL_NAME_MATCH
-    if len(repos) == 0:
-        if full_name:
-            choice = CHOICE_FULL_NAME_NO_MATCH
+        Raises
+        ------
+        IndexError or TypeError
+            If number choice is invalid.
+        KeyError
+            If 'y/n' input is invalid.
+        """
+        if user_input.isdecimal():
+            i = int(user_input) - 1
+            if i < 0:
+                raise IndexError('negative index not allowed')
         else:
-            choice = CHOICE_NONE
-    return choice
+            i = user_input.lower()
+        self._clone_url = self._get_choices()[i]
 
-def print_repos(repos, limit):
-    if limit is None:
-        limit = 10
+    def get_clone_url(self):
+        """Return github clone url or None."""
+        return self._clone_url
 
-    term_cols = shutil.get_terminal_size((80, 20)).columns
-    i = 0
-    lines = []
-    for letter, repo in list(repos.items())[:limit]:
-        # Set length of string to make items line up evenly
-        str_len = 8
-        key = '({}) ({})'.format(i + 1, letter).rjust(str_len)
-        data = '{} {} - {}'.format(key, repo.full_name, repo.description)
-        line = (data[:term_cols - 3] + '...') if len(data) > term_cols else data
-        lines.append(line)
-        i += 1
-    print('\n'.join(lines))
+    def get_output(self):
+        """Return output based on current state."""
+        return self._outputs.get(self._state, None)
 
-def get_list_input_url(repos, limit=None):
-    if limit is None:
-        limit = 10
-    print_repos(repos, limit)
-    i = get_input('Clone which repository? ')
-    letter = parse_list_input(i, limit)
-    repo = repos.get(letter, None)
+    def _update_state(self, keyword, repos):
+        self._keyword = keyword
+        self._repos = repos
+        self._clone_url = None
+        repo_words = keyword.split('/')
+        full_name = True if len(repo_words) == 2 else False
+        self._state = self.STATE_LIST
+        if full_name:
+            match = [repo for repo in self._repos if repo.full_name == keyword]
+            if len(match) == 1:
+                self._state = self.STATE_FULL_NAME_MATCH
+                self._clone_repo = match[0]
+                self._clone_url = match[0].clone_url
+        if len(repos) == 0:
+            if full_name:
+                self._state = self.STATE_FULL_NAME_NO_MATCH
+            else:
+                self._state = self.STATE_NONE
+        self._outputs = {
+                self.STATE_NONE: 'No repositories found.',
+                self.STATE_LIST: self._get_list_output(),
+                self.STATE_FULL_NAME_NO_MATCH: self._get_no_match_output()
+                }
 
-    if repo is None:
-        print('Invalid choice: {}'.format(i))
-        return None
-    return repo.clone_url
+    def _get_choices(self):
+        """Return choices for selection by user input."""
+        if self._state == self.STATE_LIST:
+            return [repo.clone_url for repo in self._repos]
+        else:
+            return {'y': self._get_no_match_url(), 'n': None}
 
-def get_no_match_input_url(keyword):
-    gh_url_format = 'https://github.com/{}.git'
-    clone_url = gh_url_format.format(keyword)
-    query = "Repository not found. Clone '{}' ? [y/n] ".format(clone_url)
-    response = get_input(query)
-    if response.lower() == 'y':
-        return clone_url
-    else:
-        return None
+    def _get_no_match_url(self):
+        gh_url_format = 'https://github.com/{}.git'
+        return gh_url_format.format(self._keyword)
 
-def get_input(msg):
-    try:
-        return input(msg)
-    except KeyboardInterrupt:
-        exit()
+    def _get_no_match_output(self):
+        clone_url = self._get_no_match_url()
+        return "Repository not found. Clone '{}' ? (y/n) ".format(clone_url)
 
-def get_match_url(keyword, repos):
-    match = [repo for repo in repos.values() if repo.full_name == keyword]
-    return match[0].clone_url
+    def _get_list_output(self):
+        longest = 0
+        lefts = []
+        i = 1
+        for repo in self._repos:
+            # Set length of string to make items line up evenly
+            key_len = 4
+            key = '({})'.format(i).rjust(key_len)
+            left = '{} {}'.format(key, repo.full_name)
+            lefts.append(left)
+            length = len(left)
+            if length > longest:
+                longest = length
+            i += 1
 
-def parseopts(args):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('repo', help='Keyword or full repo name. If repo ' \
-            'matches a search result\'s full repository name ' \
-            '(e.g. "tmux/tmux"), clone that repository. Otherwise list ' \
-            'search results to pick from.')
-    parser.add_argument('clone_args', nargs=argparse.REMAINDER,
-            help='Arguments passed to git clone.')
-    parsed_args = parser.parse_args(args)
-    return (parsed_args.repo, parsed_args.clone_args)
+        lines = []
+        for x in range(len(self._repos)):
+            repo = self._repos[x]
+            left = lefts[x].ljust(longest)
+            data = '{}  {}'.format(left, repo.description)
+            lines.append(data)
 
-def main(args=None):
-    if args is None:
-        args = sys.argv[1:]
+        lines.append('Clone which repository? ')
+        return '\n'.join(lines)
 
-    keyword, clone_args = parseopts(args)
+class Gsearch(object):
+    """Search for github repositories."""
+    LIMIT_MAX = 99
+    LIMIT_DEFAULT = 10
 
-    repos = parse_search_results(search(keyword))
-    choice = get_choice(keyword, repos)
+    SORT_CHOICES = ['stars', 'forks', 'updated']
+    ORDER_CHOICES = ['desc', 'asc']
 
-    if choice == CHOICE_NONE:
-        print('No repositories found.')
-        clone_url = None
-    elif choice == CHOICE_LIST:
-        clone_url = get_list_input_url(repos)
-    elif choice == CHOICE_FULL_NAME_MATCH:
-        clone_url = get_match_url(keyword, repos)
-    elif choice == CHOICE_FULL_NAME_NO_MATCH:
-        clone_url = get_no_match_input_url(keyword)
+    def __init__(self):
+        self._github = Github()
 
-    if clone_url is not None:
-        git('clone', clone_url, *clone_args)
+    def search(self, query, **kwargs):
+        """Search for github repositories.
 
-if __name__ == '__main__':
-    main()
+        Parameters
+        ----------
+        query : str
+
+        Other Parameters
+        ----------------
+        sort : {'stars', 'forks', 'updated'}, optional
+        order : {'asc', 'desc'}, optional
+        limit : int, optional
+            Max number of results (default is 10).
+
+        Returns
+        -------
+        list
+            List of repositories or an empty list.
+        """
+        limit = kwargs.pop('limit', self.LIMIT_DEFAULT)
+        limit = min(limit, self.LIMIT_MAX)
+        results = self._github.search_repositories(query, **kwargs)
+        try:
+            repos = [repo for repo in results[:limit]]
+        except IndexError:
+            repos = []
+
+        return repos
