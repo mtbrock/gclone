@@ -32,6 +32,7 @@ def _fit_term_width(lines):
 def _prepare_args(args):
     num = len(args)
     new_args = []
+    next_arg = None
     for i in range(num):
         arg = args[i]
         if i < num - 1 and str(arg).startswith('--'):

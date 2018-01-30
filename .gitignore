@@ -5,4 +5,6 @@ __pycache__
 pip-selfcheck.json
 dist
 build
+_build
 *egg-info
+/share
