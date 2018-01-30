@@ -21,6 +21,8 @@ def _get_input(msg):
         exit()
 
 def _fit_term_width(lines):
+    if lines is None:
+        return lines
     """Shorten each line of a string to the width of the terminal."""
     term_cols = shutil.get_terminal_size((80, 20)).columns
     new_lines = []
