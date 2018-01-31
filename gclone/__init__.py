@@ -37,7 +37,7 @@ def _prepare_args(args):
     next_arg = None
     for i in range(num):
         arg = args[i]
-        if i < num - 1 and str(arg).startswith('--'):
+        if i < num - 1 and arg.startswith('--') and '=' not in arg:
             next_arg = args[i + 1]
             new_args.append('{}={}'.format(arg, next_arg))
         elif arg is not next_arg:
