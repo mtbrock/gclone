@@ -1,7 +1,9 @@
 gclone
 ======
 Python 3 program for cloning github repositories by name or keyword.
-[![Version][version-badge][version-link]]
+
+.. :image:: https://img.shields.io/pypi/v/gclone.svg?label=version
+   :target: https://pypi.python.org/pypi/gclone/
 
 Install
 -------
@@ -28,6 +30,3 @@ Pass options like you would to ``git clone``::
 Specify sort, order, or limit::
 
   $ gclone --sort='forks' --order='desc' --limit=20 keyword
-
-[version-badge]:   https://img.shields.io/pypi/v/gclone.svg?label=version
-[version-link]:    https://pypi.python.org/pypi/gclone/
