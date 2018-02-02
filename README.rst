@@ -2,7 +2,7 @@ gclone
 ======
 Python 3 program for cloning github repositories by name or keyword.
 
-.. :image:: https://img.shields.io/pypi/v/gclone.svg?label=version
+.. image:: https://img.shields.io/pypi/v/gclone.svg?label=version
    :target: https://pypi.python.org/pypi/gclone/
 
 Install
